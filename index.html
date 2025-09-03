@@ -12,41 +12,30 @@
       padding: 20px;
     }
     .container {
-      max-width: 800px;
+      max-width: 860px;
       margin: 0 auto;
       background: white;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    select, button {
-      padding: 8px 12px;
-      margin: 5px;
-      font-size: 16px;
-    }
+    h1 { text-align: center; color: #333; }
+    select, button { padding: 8px 12px; margin: 5px; font-size: 16px; }
     .sentence {
-      font-size: 20px;
-      text-align: center;
-      margin: 20px 0;
-      padding: 10px;
-      background: #f1f1f1;
-      border-radius: 8px;
+      font-size: 20px; text-align: center; margin: 20px 0;
+      padding: 10px; background: #f1f1f1; border-radius: 8px;
     }
     #result, #diff {
-      padding: 10px;
-      margin-top: 10px;
-      background: #f9f9f9;
-      border: 1px solid #ddd;
-      min-height: 30px;
+      padding: 10px; margin-top: 10px; background: #f9f9f9;
+      border: 1px solid #ddd; min-height: 30px;
     }
-    .highlight {
-      background: yellow;
-      font-weight: bold;
-    }
+    .row { margin: 6px 0; }
+    .label { color:#666; font-size:14px; margin-right:6px; }
+    .highlight { background: yellow; font-weight: bold; }
+    .ok { background: rgba(22,163,74,.12); }
+    .note { color:#6b7280; font-size:12px; }
+    .scoreRow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    #feedback { color:#374151; font-size:15px; }
   </style>
 </head>
 <body>
@@ -73,41 +62,64 @@
 
     <h3>差異高光：</h3>
     <div id="diff">尚無結果</div>
+    <div class="note">說明：綠底為一致，高光為不同；例句缺漏以 <b>∅</b> 顯示，辨識多唸會在「辨識」行以高光顯示。</div>
 
     <h3>正確率：</h3>
-    <div id="accuracy">—</div>
+    <div class="scoreRow">
+      <div id="accuracy">—</div>
+      <div id="feedback"></div>
+      <button id="btnDownload" onclick="downloadTxt()">⬇️ 下載成績（TXT）</button>
+    </div>
   </div>
 
 <script>
+  // ---- 句庫：每個主題 5 句 ----
   const sentences = {
     school: [
-      "請問教務處在幾樓，我要辦理加退選",
-      "圖書館今天開到幾點，我想借參考書",
-      "下週的小組報告需要上臺簡報十分鐘"
+      "請問我可以在哪裡辦理加退選",
+      "圖書館今天開到幾點",
+      "下週的小組報告需要上臺報告十分鐘",
+      "明天的體育課要穿運動服和白色球鞋",
+      "交換生說明會改到下午三點，別遲到了"
     ],
     transport: [
-      "到臺北車站要換哪一條捷運線",
+      "到臺北車站要在哪裡搭車",
       "公車到站請從後門下車不要擠",
-      "機場快線末班車是晚上十一點"
+      "這輛公車的末班車是晚上十一點",
+      "你要下車要記得早一點按下車鈴",
+      "搭高鐵自由座需要先排隊等車"
     ],
     shopping: [
-      "這件外套有沒有小一號的尺寸",
-      "特價商品售出恕不退換請留意",
-      "結帳可以使用行動支付和發票載具"
+      "這件外套太大了有沒有小一號的",
+      "這是特價商品不可以退換喔",
+      "請問我可以使用行動支付或是信用卡嗎",
+      "你有會員或載具嗎",
+      "你已經確認尺寸和顏色了嗎"
     ],
     food: [
-      "請不要香菜謝謝另外加一點辣",
-      "內用還是外帶需要發票嗎",
-      "這道牛肉麵可以調整麵條軟硬"
+      "請不要加香菜謝謝另外加一點辣",
+      "請問你要內用還是外帶",
+      "我要點牛肉麵和冰紅茶內用三號桌",
+      "這家餐廳的招牌菜是小籠包和炒飯",
+      "我要一杯冰紅茶半糖去冰"
     ],
     housing: [
-      "租屋合約最短需一年可否接受",
-      "水電另計每月管理費五百元",
-      "押金兩個月退租時會點交"
+      "我這個學期不住在宿舍要在學校附近租房子",
+      "水電另外算還有每月要交管理費一百元",
+      "這個房間需要付押金兩個月退租時會還給你",
+      "這裡不可以養寵物也不可以用明火煮東西",
+      "垃圾需要分類才可以丟到垃圾桶"
     ]
   };
 
   let currentSentence = "";
+  const records = []; // 用來累積每次練習的成績
+
+  function nowString(){
+    const t = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+  }
 
   function newSentence() {
     const topic = document.getElementById("topic").value;
@@ -117,23 +129,25 @@
     document.getElementById("result").innerText = "尚無結果";
     document.getElementById("diff").innerText = "尚無結果";
     document.getElementById("accuracy").innerText = "—";
+    document.getElementById("feedback").innerText = "";
   }
 
   // 示範發音
   function playSentence() {
-    if (!currentSentence) {
-      alert("請先生成句子！");
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(currentSentence);
-    utterance.lang = "zh-TW";
-    speechSynthesis.speak(utterance);
+    if (!currentSentence) { alert("請先生成句子！"); return; }
+    const u = new SpeechSynthesisUtterance(currentSentence);
+    u.lang = "zh-TW";
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
 
-  // 語音辨識
+  // ---- 語音辨識（Chrome）----
   function startRecognition() {
     if (!('webkitSpeechRecognition' in window)) {
       alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
+      return;
+    }
+    if (!currentSentence) {
+      alert("請先按「換一句」生成句子！");
       return;
     }
     const recognition = new webkitSpeechRecognition();
@@ -145,29 +159,134 @@
     recognition.onresult = function(event) {
       const resultText = event.results[0][0].transcript;
       document.getElementById("result").innerText = resultText;
-      compareText(currentSentence, resultText);
+      const { pct, feedbackText } = renderDiffAndScore(currentSentence, resultText);
+
+      // 記錄
+      const topicSel = document.getElementById("topic");
+      const topicName = topicSel.options[topicSel.selectedIndex].text;
+      records.push({
+        time: nowString(),
+        topic: topicName,
+        sentence: currentSentence,
+        recognized: resultText,
+        accuracy: pct,
+        feedback: feedbackText
+      });
     };
   }
 
-  // 比對文字並高光錯誤
-  function compareText(target, spoken) {
-    let diffHtml = "";
-    let correctCount = 0;
-    const minLen = Math.min(target.length, spoken.length);
-    for (let i = 0; i < minLen; i++) {
-      if (target[i] === spoken[i]) {
-        diffHtml += target[i];
-        correctCount++;
-      } else {
-        diffHtml += `<span class="highlight">${spoken[i]}</span>`;
+  // ---- 工具：正規化（去空白與標點、全形轉半形）----
+  function normalize(str){
+    if(!str) return "";
+    return str
+      .replace(/[\s\p{P}\p{S}]/gu,'')
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+  }
+
+  // ---- Levenshtein + 回溯，輸出雙端高光 ----
+  function diffAlign(aRaw, bRaw){
+    const a = normalize(aRaw);
+    const b = normalize(bRaw);
+    const n=a.length, m=b.length;
+    const dp = Array.from({length:n+1},()=>Array(m+1).fill(0));
+    const bt = Array.from({length:n+1},()=>Array(m+1).fill(null));
+    for(let i=0;i<=n;i++){ dp[i][0]=i; bt[i][0]='U'; }
+    for(let j=0;j<=m;j++){ dp[0][j]=j; bt[0][j]='L'; }
+    for(let i=1;i<=n;i++){
+      for(let j=1;j<=m;j++){
+        const cost = a[i-1]===b[j-1]?0:1;
+        const d = dp[i-1][j-1] + cost; // 代替/相同
+        const u = dp[i-1][j] + 1;      // 刪除 a
+        const l = dp[i][j-1] + 1;      // 插入 b
+        const best = Math.min(d,u,l);
+        dp[i][j]=best; bt[i][j] = best===d? 'D' : best===u? 'U' : 'L';
       }
     }
-    if (spoken.length > target.length) {
-      diffHtml += `<span class="highlight">${spoken.slice(target.length)}</span>`;
+    // 回溯
+    let i=n, j=m, ops=[];
+    while(i>0 || j>0){
+      const move=bt[i][j];
+      if(move==='D'){
+        ops.push({type: a[i-1]===b[j-1]?'EQ':'SUB', a:a[i-1], b:b[j-1]}); i--; j--;
+      }else if(move==='U'){
+        ops.push({type:'DEL', a:a[i-1], b:''}); i--;
+      }else{
+        ops.push({type:'INS', a:'', b:b[j-1]}); j--;
+      }
     }
-    document.getElementById("diff").innerHTML = diffHtml;
-    const accuracy = Math.round((correctCount / target.length) * 100);
-    document.getElementById("accuracy").innerText = accuracy + "%";
+    ops.reverse();
+    return {distance: dp[n][m], ops, baseLen: Math.max(1,a.length)};
+  }
+
+  function feedbackByScore(pct){
+    if (pct >= 95) return "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。";
+    if (pct >= 85) return "很不錯！再注意個別字的收尾與連音，放慢一點更穩。";
+    if (pct >= 70) return "有進步！建議跟著示範慢速朗讀一次，注意容易混淆的字。";
+    if (pct >= 50) return "別急，先分段朗讀並重複練兩次，再一次完整朗讀。";
+    return "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。";
+  }
+
+  function renderDiffAndScore(targetRaw, heardRaw){
+    const {distance, ops, baseLen} = diffAlign(targetRaw, heardRaw);
+    const partsA = []; // 例句
+    const partsB = []; // 辨識
+    for(const op of ops){
+      if(op.type==='EQ'){
+        partsA.push(`<span class="ok">${op.a}</span>`);
+        partsB.push(`<span class="ok">${op.b}</span>`);
+      }else if(op.type==='SUB'){
+        partsA.push(`<span class="highlight" title="應為：${op.a}">${op.a}</span>`);
+        partsB.push(`<span class="highlight" title="辨為：${op.b}">${op.b}</span>`);
+      }else if(op.type==='DEL'){ // 例句有、辨識漏
+        partsA.push(`<span class="highlight" title="未唸出：${op.a}">${op.a}</span>`);
+        partsB.push(`<span class="highlight" title="未唸出">∅</span>`);
+      }else if(op.type==='INS'){ // 例句無、辨識多
+        partsA.push(`<span class="highlight" title="多唸">${'∅'}</span>`);
+        partsB.push(`<span class="highlight" title="多唸：${op.b}">${op.b}</span>`);
+      }
+    }
+    const html =
+      `<div class="row"><span class="label">例句：</span>${partsA.join('')}</div>`+
+      `<div class="row"><span class="label">辨識：</span>${partsB.join('')}</div>`;
+    document.getElementById("diff").innerHTML = html;
+
+    // 分數（以例句長度為基準）
+    const acc = Math.max(0, 1 - distance / baseLen);
+    const pct = Math.round(acc*100);
+    document.getElementById("accuracy").innerText = pct + "%";
+
+    const fb = feedbackByScore(pct);
+    document.getElementById("feedback").innerText = fb;
+
+    return { pct, feedbackText: fb };
+  }
+
+  // ---- 下載 TXT 成績 ----
+  function downloadTxt(){
+    if (records.length === 0) {
+      alert("尚無成績可下載。請先完成一次錄音練習。");
+      return;
+    }
+    const lines = [];
+    lines.push("【中文口語即時比對｜成績單】");
+    lines.push(`匯出時間：${nowString()}`);
+    lines.push("");
+    lines.push("時間\t主題\t例句\t辨識結果\t正確率(%)\t建議與回饋");
+
+    for (const r of records) {
+      // 以 TAB 分隔，避免逗號混淆；換行統一替換空白
+      const clean = s => (s||"").replace(/\r?\n/g," ").trim();
+      lines.push(
+        `${r.time}\t${clean(r.topic)}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.accuracy}\t${clean(r.feedback)}`
+      );
+    }
+
+    const content = lines.join("\n");
+    const blob = new Blob(["\uFEFF" + content], {type: "text/plain;charset=utf-8;"}); // 加 BOM，Windows 記事本不會亂碼
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "speaking_results.txt"; a.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
