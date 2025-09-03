@@ -3,66 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>中文口語練習</title>
+  <title>中文口語即時比對小程式（課次版）</title>
   <style>
-    body {
-      font-family: "Microsoft JhengHei", Arial, sans-serif;
-      background: #fafafa;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 920px;
-      margin: 0 auto;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 { text-align: center; color: #333; margin-top: 0; }
-    h2 { margin-top: 28px; }
-    select, button { padding: 8px 12px; margin: 5px; font-size: 16px; }
-    .sentence {
-      font-size: 20px; text-align: center; margin: 20px 0;
-      padding: 10px; background: #f1f1f1; border-radius: 8px;
-    }
-    #result, #diff, #quizDiff, .box {
-      padding: 10px; margin-top: 10px; background: #f9f9f9;
-      border: 1px solid #ddd; min-height: 30px; border-radius: 8px;
-    }
-    .row { margin: 6px 0; }
+    body { font-family: "Microsoft JhengHei", Arial, sans-serif; background:#fafafa; margin:0; padding:20px; }
+    .container { max-width: 980px; margin:0 auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 0 10px rgba(0,0,0,.08); }
+    h1 { text-align:center; margin-top:0; color:#333; }
+    h2 { margin-top:28px; }
+    select, button, input[type="file"] { padding:8px 12px; margin:5px; font-size:16px; }
+    .sentence { font-size:20px; text-align:center; margin:20px 0; padding:10px; background:#f1f1f1; border-radius:8px; }
+    #result, #diff, #quizDiff, .box { padding:10px; margin-top:10px; background:#f9f9f9; border:1px solid #ddd; min-height:30px; border-radius:8px; }
+    .row { margin:6px 0; }
     .label { color:#666; font-size:14px; margin-right:6px; }
-    .highlight { background: yellow; font-weight: bold; }
-    .ok { background: rgba(22,163,74,.12); }
+    .highlight { background:yellow; font-weight:bold; }
+    .ok { background:rgba(22,163,74,.12); }
     .note { color:#6b7280; font-size:12px; }
     .scoreRow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     #feedback { color:#374151; font-size:15px; }
     .muted { color:#6b7280; }
     .flex { display:flex; gap:20px; flex-wrap:wrap; }
     .col { flex:1 1 380px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #eaeaea; padding: 8px; text-align: left; vertical-align: top; }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid #eaeaea; padding:8px; text-align:left; vertical-align:top; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .em { font-weight:600; }
+    .pill { display:inline-block; background:#eef2ff; padding:2px 8px; border-radius:999px; font-size:12px; margin:2px 6px 2px 0; }
+    .list { display:flex; flex-wrap:wrap; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>中文口語即時比對</h1>
+    <h1>中文口語即時比對（課次版）</h1>
 
-    <!-- 練習模式 -->
-    <h2>練習</h2>
+    <!-- 句庫管理（課次） -->
+    <h2>句庫管理</h2>
+    <div class="box">
+      <div class="actions">
+        <input type="file" id="importFile" accept=".csv,.xlsx,.xls" />
+        <label><input type="radio" name="importMode" value="merge" checked> 合併</label>
+        <label><input type="radio" name="importMode" value="replace"> 取代（只取代有匯入之課次）</label>
+        <button onclick="importSentences()">匯入句庫（Excel/CSV）</button>
+        <button onclick="downloadTemplate()">下載匯入範本（CSV）</button>
+      </div>
+      <div class="note">檔案欄位：<b>Lesson</b>, <b>Sentence</b>。課次名稱可自訂（如：第一課、第二課…）。</div>
+      <div class="note">目前課次與句數：</div>
+      <div id="lessonStats" class="list"></div>
+    </div>
+
     <div class="flex">
+      <!-- 練習 -->
       <div class="col">
+        <h2>練習</h2>
         <div class="actions">
-          <label for="topic">選擇主題：</label>
-          <select id="topic">
-            <option value="school">學校</option>
-            <option value="transport">交通</option>
-            <option value="shopping">購物</option>
-            <option value="food">餐飲</option>
-            <option value="housing">住宿</option>
-          </select>
+          <label for="lesson">選擇課次：</label>
+          <select id="lesson"></select>
           <button onclick="newSentence()">換一句</button>
         </div>
 
@@ -88,24 +81,17 @@
         </div>
       </div>
 
-      <!-- 測驗模式 -->
+      <!-- 測驗 -->
       <div class="col">
         <h2>測驗</h2>
         <div class="box">
           <div class="actions">
-            <label for="quizTopic">主題：</label>
-            <select id="quizTopic">
-              <option value="school">學校</option>
-              <option value="transport">交通</option>
-              <option value="shopping">購物</option>
-              <option value="food">餐飲</option>
-              <option value="housing">住宿</option>
-            </select>
+            <label for="quizLesson">課次：</label>
+            <select id="quizLesson"></select>
             <button onclick="startQuiz()">開始測驗（3題）</button>
           </div>
 
           <div class="muted">狀態：<span id="quizState">未開始</span></div>
-
           <div class="sentence" id="quizSentence">（開始後顯示本題句子）</div>
 
           <div class="actions">
@@ -143,404 +129,282 @@
     </div>
   </div>
 
+<!-- 解析 Excel 用（SheetJS） -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <script>
-  // ---- 句庫：每個主題 5 句 ----
-  const sentences = {
-    school: [
-      "請問我可以在哪裡辦理加退選",
-      "圖書館今天開到幾點",
-      "下週的小組報告要上臺報告，我很緊張",
-      "明天的體育課要穿運動服和白色球鞋",
-      "交換生說明會改到明天，別遲到了"
+  // ====== 初始課次句庫（可被匯入覆蓋/合併）======
+  let lessons = {
+    "第一課": [
+      "請問教務處在幾樓，我要辦理加退選",
+      "圖書館今天開到幾點，我想借參考書",
+      "下週的小組報告需要上臺簡報十分鐘",
+      "體育課要穿運動服和白色球鞋",
+      "系辦公告說明會改到下午三點"
     ],
-    transport: [
-      "到臺北車站要在哪裡搭車",
-      "請從後門下車，不要擠",
-      "這班公車的末班車是幾點",
-      "你要下車的話請記得按下車鈴",
-      "要搭高鐵自由座需要先排隊"
+    "第二課": [
+      "到臺北車站要換哪一條捷運線",
+      "公車到站請從後門下車不要擠",
+      "機場快線末班車是晚上十一點",
+      "這一站之後請記得按下下車鈴",
+      "高鐵自由座需要先排隊候車"
     ],
-    shopping: [
-      "這件外套有沒有小一號的",
-      "這是特價商品，售出恕不退換",
-      "請問我可以使用行動支付或信用卡嗎",
-      "請問你有會員或載具嗎",
-      "這件衣服破了一個洞，我要退貨"
+    "第三課": [
+      "這件外套有沒有小一號的尺寸",
+      "特價商品售出恕不退換請留意",
+      "結帳可以使用行動支付和發票載具",
+      "會員今天滿千送百另外有點數",
+      "試穿間在右邊走到底左轉"
     ],
-    food: [
-      "請不要加香菜，謝謝。另外加一點辣",
-      "請問你要內用還是外帶",
-      "我要點一碗牛肉麵和一杯冰紅茶，內用二號桌",
-      "這家餐廳的招牌菜是小籠包和炒飯",
-      "我要一杯冰紅茶，半糖去冰"
+    "第四課": [
+      "請不要香菜謝謝另外加一點辣",
+      "內用還是外帶需要發票嗎",
+      "這道牛肉麵可以調整麵條軟硬",
+      "今天的湯是蘿蔔排骨還有海帶",
+      "飲料半糖去冰就可以了"
     ],
-    housing: [
-      "我這個學期不住宿舍，要在學校附近租房子",
-      "水電另計，還有每月管理費一百元",
-      "除了房租，還有兩個月的押金，退租的時候會還給你。",
-      "這棟大樓不可以養寵物也不可以抽菸",
-      "一定要做好垃圾分類"
+    "第五課": [
+      "租屋合約最短需一年可否接受",
+      "水電另計每月管理費五百元",
+      "押金兩個月退租時會點交",
+      "請勿飼養寵物並保持公共安靜",
+      "垃圾需依規定分類投放"
     ]
   };
 
   // ====== 共用：時間、正規化、比對 ======
-  function nowString(){
-    const t = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
-  }
-
-  function normalize(str){
-    if(!str) return "";
-    return str
-      .replace(/[\s\p{P}\p{S}]/gu,'') // 去掉空白、標點
-      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)); // 全形轉半形
-  }
-
-  function diffAlign(aRaw, bRaw){
-    const a = normalize(aRaw);
-    const b = normalize(bRaw);
-    const n=a.length, m=b.length;
-    const dp = Array.from({length:n+1},()=>Array(m+1).fill(0));
-    const bt = Array.from({length:n+1},()=>Array(m+1).fill(null));
+  function nowString(){ const t=new Date(),p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`; }
+  function normalize(str){ if(!str) return ""; return str.replace(/[\s\p{P}\p{S}]/gu,'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,s=>String.fromCharCode(s.charCodeAt(0)-0xFEE0)); }
+  function diffAlign(aRaw,bRaw){
+    const a=normalize(aRaw), b=normalize(bRaw), n=a.length, m=b.length;
+    const dp=Array.from({length:n+1},()=>Array(m+1).fill(0));
+    const bt=Array.from({length:n+1},()=>Array(m+1).fill(null));
     for(let i=0;i<=n;i++){ dp[i][0]=i; bt[i][0]='U'; }
     for(let j=0;j<=m;j++){ dp[0][j]=j; bt[0][j]='L'; }
-    for(let i=1;i<=n;i++){
-      for(let j=1;j<=m;j++){
-        const cost = a[i-1]===b[j-1]?0:1;
-        const d = dp[i-1][j-1] + cost; // 代替/相同
-        const u = dp[i-1][j] + 1;      // 刪除 a
-        const l = dp[i][j-1] + 1;      // 插入 b
-        const best = Math.min(d,u,l);
-        dp[i][j]=best; bt[i][j] = best===d? 'D' : best===u? 'U' : 'L';
-      }
+    for(let i=1;i<=n;i++){ for(let j=1;j<=m;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      const d=dp[i-1][j-1]+cost, u=dp[i-1][j]+1, l=dp[i][j-1]+1;
+      const best=Math.min(d,u,l); dp[i][j]=best; bt[i][j]=best===d?'D':best===u?'U':'L';
+    }}
+    let i=n,j=m,ops=[]; while(i>0||j>0){ const mv=bt[i][j];
+      if(mv==='D'){ ops.push({type:a[i-1]===b[j-1]?'EQ':'SUB', a:a[i-1], b:b[j-1]}); i--; j--; }
+      else if(mv==='U'){ ops.push({type:'DEL', a:a[i-1], b:''}); i--; }
+      else { ops.push({type:'INS', a:'', b:b[j-1]}); j--; }
     }
-    // 回溯
-    let i=n, j=m, ops=[];
-    while(i>0 || j>0){
-      const move=bt[i][j];
-      if(move==='D'){
-        ops.push({type: a[i-1]===b[j-1]?'EQ':'SUB', a:a[i-1], b:b[j-1]}); i--; j--;
-      }else if(move==='U'){
-        ops.push({type:'DEL', a:a[i-1], b:''}); i--;
-      }else{
-        ops.push({type:'INS', a:'', b:b[j-1]}); j--;
-      }
-    }
-    ops.reverse();
-    return {distance: dp[n][m], ops, baseLen: Math.max(1,a.length)};
+    ops.reverse(); return {distance:dp[n][m], ops, baseLen:Math.max(1,a.length)};
   }
-
-  function feedbackByScore(pct){
-    if (pct >= 95) return "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。";
-    if (pct >= 85) return "很不錯！再注意個別字的收尾與連音，放慢一點更穩。";
-    if (pct >= 70) return "有進步！建議先跟著示範慢速朗讀，針對高光字多練幾次。";
-    if (pct >= 50) return "別急，先分段朗讀並重複練習，再完整朗讀一次。";
-    return "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。";
-  }
-
-  // ❶ 測驗總評（中／英對照）
-  function quizOverallFeedback(totalPct){
-    if (totalPct >= 95) return {
-      zh: "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。",
-      en: "Excellent! Nearly perfect accuracy—keep your articulation clear and pace steady."
-    };
-    if (totalPct >= 85) return {
-      zh: "很不錯！再注意個別字的收尾與連音，放慢一點更穩。",
-      en: "Great work! Watch final consonants and liaison; a slightly slower pace adds stability."
-    };
-    if (totalPct >= 70) return {
-      zh: "有進步！建議跟著示範慢速朗讀，針對高光字多練幾次。",
-      en: "Good progress! Shadow the demo slowly and practice the highlighted characters."
-    };
-    if (totalPct >= 50) return {
-      zh: "別急，先分段朗讀並重複練習，再完整朗讀一次。",
-      en: "Don't rush—read in chunks, repeat, then attempt a full read."
-    };
-    return {
-      zh: "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。",
-      en: "Keep at it! Listen twice, echo word-by-word, and ensure each syllable lands."
-    };
-  }
-
   function renderDiffHTML(targetRaw, heardRaw){
-    const {distance, ops, baseLen} = diffAlign(targetRaw, heardRaw);
-    const partsA = []; // 例句
-    const partsB = []; // 辨識
+    const {distance, ops, baseLen}=diffAlign(targetRaw, heardRaw);
+    const A=[], B=[];
     for(const op of ops){
-      if(op.type==='EQ'){
-        partsA.push(`<span class="ok">${op.a}</span>`);
-        partsB.push(`<span class="ok">${op.b}</span>`);
-      }else if(op.type==='SUB'){
-        partsA.push(`<span class="highlight" title="應為：${op.a}">${op.a}</span>`);
-        partsB.push(`<span class="highlight" title="辨為：${op.b}">${op.b}</span>`);
-      }else if(op.type==='DEL'){ // 例句有、辨識漏
-        partsA.push(`<span class="highlight" title="未唸出：${op.a}">${op.a}</span>`);
-        partsB.push(`<span class="highlight" title="未唸出">∅</span>`);
-      }else if(op.type==='INS'){ // 例句無、辨識多
-        partsA.push(`<span class="highlight" title="多唸">∅</span>`);
-        partsB.push(`<span class="highlight" title="多唸：${op.b}">${op.b}</span>`);
-      }
+      if(op.type==='EQ'){ A.push(`<span class="ok">${op.a}</span>`); B.push(`<span class="ok">${op.b}</span>`); }
+      else if(op.type==='SUB'){ A.push(`<span class="highlight" title="應為：${op.a}">${op.a}</span>`); B.push(`<span class="highlight" title="辨為：${op.b}">${op.b}</span>`); }
+      else if(op.type==='DEL'){ A.push(`<span class="highlight" title="未唸出：${op.a}">${op.a}</span>`); B.push(`<span class="highlight" title="未唸出">∅</span>`); }
+      else if(op.type==='INS'){ A.push(`<span class="highlight" title="多唸">∅</span>`); B.push(`<span class="highlight" title="多唸：${op.b}">${op.b}</span>`); }
     }
-    const acc = Math.max(0, 1 - distance / baseLen);
-    const pct = Math.round(acc*100);
-    const html =
-      `<div class="row"><span class="label">例句：</span>${partsA.join('')}</div>`+
-      `<div class="row"><span class="label">辨識：</span>${partsB.join('')}</div>`;
+    const pct=Math.round(Math.max(0,1-distance/baseLen)*100);
+    const html=`<div class="row"><span class="label">例句：</span>${A.join('')}</div><div class="row"><span class="label">辨識：</span>${B.join('')}</div>`;
     return { html, pct };
   }
-
-  // ====== 練習模式 ======
-  let currentSentence = "";
-  const records = []; // 練習紀錄（TXT 匯出用）
-
-  function newSentence() {
-    const topic = document.getElementById("topic").value;
-    const list = sentences[topic];
-    currentSentence = list[Math.floor(Math.random() * list.length)];
-    document.getElementById("sentence").innerText = currentSentence;
-    document.getElementById("result").innerText = "尚無結果";
-    document.getElementById("diff").innerText = "尚無結果";
-    document.getElementById("accuracy").innerText = "—";
-    document.getElementById("feedback").innerText = "";
+  function feedbackByScore(pct){
+    if (pct>=95) return "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。";
+    if (pct>=85) return "很不錯！再注意個別字的收尾與連音，放慢一點更穩。";
+    if (pct>=70) return "有進步！建議先跟著示範慢速朗讀，針對高光字多練幾次。";
+    if (pct>=50) return "別急，先分段朗讀並重複練習，再完整朗讀一次。";
+    return "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。";
+  }
+  function quizOverallFeedback(totalPct){
+    if (totalPct>=95) return { zh:"太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。", en:"Excellent! Nearly perfect accuracy—keep your articulation clear and pace steady." };
+    if (totalPct>=85) return { zh:"很不錯！再注意個別字的收尾與連音，放慢一點更穩。", en:"Great work! Watch final consonants and liaison; a slightly slower pace adds stability." };
+    if (totalPct>=70) return { zh:"有進步！建議跟著示範慢速朗讀，針對高光字多練幾次。", en:"Good progress! Shadow the demo slowly and practice the highlighted characters." };
+    if (totalPct>=50) return { zh:"別急，先分段朗讀並重複練習，再完整朗讀一次。", en:"Don't rush—read in chunks, repeat, then attempt a full read." };
+    return { zh:"加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。", en:"Keep at it! Listen twice, echo word-by-word, and ensure each syllable lands." };
   }
 
-  function playSentence() {
-    if (!currentSentence) { alert("請先生成句子！"); return; }
-    const u = new SpeechSynthesisUtterance(currentSentence);
-    u.lang = "zh-TW";
+  // ====== UI：課次選單與統計 ======
+  function refreshLessonOptions(){
+    const sel1=document.getElementById("lesson");
+    const sel2=document.getElementById("quizLesson");
+    const keys=Object.keys(lessons);
+    const fill=(sel)=>{ sel.innerHTML=""; keys.forEach(k=>{ const o=document.createElement("option"); o.value=k; o.textContent=k; sel.appendChild(o); }); };
+    fill(sel1); fill(sel2);
+  }
+  function renderLessonStats(){
+    const box=document.getElementById("lessonStats");
+    box.innerHTML="";
+    Object.entries(lessons).forEach(([k,arr])=>{
+      const span=document.createElement("span");
+      span.className="pill";
+      span.textContent=`${k}：${(arr||[]).length} 句`;
+      box.appendChild(span);
+    });
+  }
+  refreshLessonOptions(); renderLessonStats();
+
+  // ====== 練習 ======
+  let currentSentence="";
+  const practiceRecords=[];
+  function newSentence(){
+    const key=document.getElementById("lesson").value;
+    const list=lessons[key]||[];
+    if(list.length===0){ alert("此課次目前沒有句子，請先匯入。"); return; }
+    currentSentence=list[Math.floor(Math.random()*list.length)];
+    document.getElementById("sentence").innerText=currentSentence;
+    document.getElementById("result").innerText="尚無結果";
+    document.getElementById("diff").innerText="尚無結果";
+    document.getElementById("accuracy").innerText="—";
+    document.getElementById("feedback").innerText="";
+  }
+  function playSentence(){
+    if(!currentSentence){ alert("請先生成句子！"); return; }
+    const u=new SpeechSynthesisUtterance(currentSentence); u.lang="zh-TW";
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
-
-  function startRecognition() {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
-      return;
-    }
-    if (!currentSentence) { alert("請先按「換一句」生成句子！"); return; }
-    const recognition = new webkitSpeechRecognition();
-    recognition.lang = "zh-TW";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.start();
-
-    recognition.onresult = function(event) {
-      const resultText = event.results[0][0].transcript;
-      document.getElementById("result").innerText = resultText;
-
-      const { html, pct } = renderDiffHTML(currentSentence, resultText);
-      document.getElementById("diff").innerHTML = html;
-      document.getElementById("accuracy").innerText = pct + "%";
-      document.getElementById("feedback").innerText = feedbackByScore(pct);
-
-      // 練習紀錄
-      const topicSel = document.getElementById("topic");
-      const topicName = topicSel.options[topicSel.selectedIndex].text;
-      records.push({
-        time: nowString(),
-        topic: topicName,
-        sentence: currentSentence,
-        recognized: resultText,
-        accuracy: pct,
-        feedback: feedbackByScore(pct)
-      });
+  function startRecognition(){
+    if(!('webkitSpeechRecognition'in window)){ alert("此瀏覽器不支援語音辨識，請使用 Chrome。"); return; }
+    if(!currentSentence){ alert("請先按「換一句」生成句子！"); return; }
+    const r=new webkitSpeechRecognition(); r.lang="zh-TW"; r.continuous=false; r.interimResults=false; r.start();
+    r.onresult=function(e){
+      const heard=e.results[0][0].transcript;
+      document.getElementById("result").innerText=heard;
+      const {html,pct}=renderDiffHTML(currentSentence, heard);
+      document.getElementById("diff").innerHTML=html;
+      document.getElementById("accuracy").innerText=pct+"%";
+      document.getElementById("feedback").innerText=feedbackByScore(pct);
+      const key=document.getElementById("lesson").value;
+      practiceRecords.push({ time:nowString(), lesson:key, sentence:currentSentence, recognized:heard, accuracy:pct, feedback:feedbackByScore(pct) });
     };
   }
-
   function downloadTxt(){
-    if (records.length === 0) {
-      alert("尚無成績可下載。請先完成一次錄音練習。");
-      return;
-    }
-    const lines = [];
-    lines.push("【中文口語即時比對｜練習成績單】");
-    lines.push(`匯出時間：${nowString()}`);
-    lines.push("");
-    lines.push("時間\t主題\t例句\t辨識結果\t正確率(%)\t建議與回饋");
-    for (const r of records) {
-      const clean = s => (s||"").replace(/\r?\n/g," ").trim();
-      lines.push(
-        `${r.time}\t${clean(r.topic)}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.accuracy}\t${clean(r.feedback)}`
-      );
-    }
-    const content = lines.join("\n");
-    const blob = new Blob(["\uFEFF" + content], {type: "text/plain;charset=utf-8;"}); // BOM for Notepad
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "practice_results.txt"; a.click();
-    URL.revokeObjectURL(url);
+    if(practiceRecords.length===0){ alert("尚無成績可下載。請先完成一次錄音練習。"); return; }
+    const lines=["【中文口語即時比對｜練習成績單】",`匯出時間：${nowString()}`,"","時間\t課次\t例句\t辨識結果\t正確率(%)\t建議與回饋"];
+    const clean=s=>(s||"").replace(/\r?\n/g," ").trim();
+    practiceRecords.forEach(r=>lines.push(`${r.time}\t${clean(r.lesson)}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.accuracy}\t${clean(r.feedback)}`));
+    const blob=new Blob(["\uFEFF"+lines.join("\n")],{type:"text/plain;charset=utf-8;"}), url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="practice_results.txt"; a.click(); URL.revokeObjectURL(url);
   }
 
-  // ====== 測驗模式 ======
-  let quizQueue = [];   // 3 題的句子
-  let quizIndex = -1;   // 目前題號（0~2）
-  let quizHeard = "";   // 本題辨識
-  let quizTopicName = "";
-  const quizRecords = []; // {idx, sentence, recognized, pct, diffHTML}
-
-  function setQuizState(text){ document.getElementById("quizState").innerText = text; }
-
+  // ====== 測驗 ======
+  let quizQueue=[], quizIndex=-1, quizHeard="", quizLessonName="";
+  const quizRecords=[]; // {idx,sentence,recognized,pct,diffHTML}
+  function setQuizState(t){ document.getElementById("quizState").innerText=t; }
   function startQuiz(){
-    const sel = document.getElementById("quizTopic");
-    const key = sel.value;
-    quizTopicName = sel.options[sel.selectedIndex].text;
-
-    // 從主題隨機抽 3 句（不重覆）
-    const pool = [...sentences[key]];
-    quizQueue = [];
-    for(let i=0;i<3;i++){
-      const idx = Math.floor(Math.random()*pool.length);
-      quizQueue.push(pool.splice(idx,1)[0]);
-    }
-    quizRecords.length = 0;
-    quizIndex = -1;
-    quizHeard = "";
-    document.getElementById("quizSummary").style.display = "none";
-    document.getElementById("quizFeedback").innerText = "—";
-    setQuizState("已抽題，按「提交本題」前請先錄音。");
-    nextQuiz();
+    const key=document.getElementById("quizLesson").value; quizLessonName=key;
+    const pool=[...(lessons[key]||[])]; if(pool.length<1){ alert("此課次沒有句子，請先匯入。"); return; }
+    quizQueue=[]; for(let i=0;i<3;i++){ if(pool.length===0) break; const idx=Math.floor(Math.random()*pool.length); quizQueue.push(pool.splice(idx,1)[0]); }
+    if(quizQueue.length<3){ const base=lessons[key]||[]; while(quizQueue.length<3 && base.length>0){ quizQueue.push(base[Math.floor(Math.random()*base.length)]); } }
+    quizRecords.length=0; quizIndex=-1; quizHeard=""; document.getElementById("quizSummary").style.display="none"; document.getElementById("quizFeedback").innerText="—";
+    setQuizState("已抽題，按「提交本題」前請先錄音。"); nextQuiz();
   }
-
   function nextQuiz(){
-    quizIndex++;
-    if(quizIndex >= quizQueue.length){
-      finishQuiz();
-      return;
-    }
-    const s = quizQueue[quizIndex];
-    document.getElementById("quizSentence").innerText = `第 ${quizIndex+1} 題：${s}`;
-    document.getElementById("quizHeard").innerText = "—";
-    document.getElementById("quizDiff").innerText = "（高光差異會顯示在這裡）";
-    quizHeard = "";
+    quizIndex++; if(quizIndex>=quizQueue.length){ finishQuiz(); return; }
+    const s=quizQueue[quizIndex]; document.getElementById("quizSentence").innerText=`第 ${quizIndex+1} 題：${s}`;
+    document.getElementById("quizHeard").innerText="—"; document.getElementById("quizDiff").innerText="（高光差異會顯示在這裡）"; quizHeard="";
     setQuizState(`作答中（第 ${quizIndex+1}/3 題）`);
   }
-
-  function quizPlay(){
-    const txt = quizQueue[quizIndex];
-    if(!txt){ alert("請先開始測驗。"); return; }
-    const u = new SpeechSynthesisUtterance(txt);
-    u.lang = "zh-TW";
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  }
-
+  function quizPlay(){ const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; } const u=new SpeechSynthesisUtterance(txt); u.lang="zh-TW"; speechSynthesis.cancel(); speechSynthesis.speak(u); }
   function quizRecord(){
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
-      return;
-    }
-    const txt = quizQueue[quizIndex];
-    if(!txt){ alert("請先開始測驗。"); return; }
-
-    const recognition = new webkitSpeechRecognition();
-    recognition.lang = "zh-TW";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.start();
-
-    recognition.onresult = function(event) {
-      quizHeard = event.results[0][0].transcript || "";
-      document.getElementById("quizHeard").innerText = quizHeard || "（未取得辨識）";
-      const { html } = renderDiffHTML(txt, quizHeard);
-      document.getElementById("quizDiff").innerHTML = html;
-    };
+    if(!('webkitSpeechRecognition'in window)){ alert("此瀏覽器不支援語音辨識，請使用 Chrome。"); return; }
+    const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; }
+    const r=new webkitSpeechRecognition(); r.lang="zh-TW"; r.continuous=false; r.interimResults=false; r.start();
+    r.onresult=function(e){ quizHeard=e.results[0][0].transcript||""; document.getElementById("quizHeard").innerText=quizHeard||"（未取得辨識）"; const {html}=renderDiffHTML(txt,quizHeard); document.getElementById("quizDiff").innerHTML=html; };
   }
-
   function quizSubmit(){
-    const txt = quizQueue[quizIndex];
-    if(!txt){ alert("請先開始測驗。"); return; }
+    const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; }
     if(!quizHeard){ alert("請先錄音再提交本題。"); return; }
-
-    const { html, pct } = renderDiffHTML(txt, quizHeard);
-    quizRecords.push({
-      idx: quizIndex+1,
-      sentence: txt,
-      recognized: quizHeard,
-      pct,
-      diffHTML: html
-    });
-
-    // 下一題或結束
+    const {html,pct}=renderDiffHTML(txt, quizHeard);
+    quizRecords.push({ idx:quizIndex+1, sentence:txt, recognized:quizHeard, pct, diffHTML:html });
     nextQuiz();
   }
-
   function finishQuiz(){
     setQuizState("測驗完成");
-    // 統計總分
-    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
-    document.getElementById("quizTotal").innerText = total + "%";
-
-    // 總評（雙語）
-    const fb = quizOverallFeedback(total);
-    document.getElementById("quizFeedback").innerText = `${fb.zh} / ${fb.en}`;
-
-    // 填表
-    const tbody = document.querySelector("#quizTable tbody");
-    tbody.innerHTML = "";
-    for(const r of quizRecords){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${r.idx}</td>
-        <td>${r.diffHTML}</td>
-        <td>${r.pct}%</td>
-      `;
-      tbody.appendChild(tr);
-    }
-    document.getElementById("quizSummary").style.display = "block";
+    const total=Math.round(quizRecords.reduce((s,r)=>s+r.pct,0)/quizRecords.length);
+    document.getElementById("quizTotal").innerText=total+"%";
+    const fb=quizOverallFeedback(total); document.getElementById("quizFeedback").innerText=`${fb.zh} / ${fb.en}`;
+    const tbody=document.querySelector("#quizTable tbody"); tbody.innerHTML="";
+    quizRecords.forEach(r=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${r.idx}</td><td>${r.diffHTML}</td><td>${r.pct}%</td>`; tbody.appendChild(tr); });
+    document.getElementById("quizSummary").style.display="block";
   }
-
   function downloadQuizTXT(){
-    if(quizRecords.length !== 3){
-      alert("請先完成一次 3 題的測驗。");
-      return;
-    }
-    const lines = [];
-    lines.push("【中文口語即時比對｜本次測驗】");
-    lines.push(`匯出時間：${nowString()}`);
-    lines.push(`主題：${quizTopicName}`);
-    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
-    const fb = quizOverallFeedback(total);
-    lines.push(`總正確率：${total}%`);
-    lines.push(`總評（中文）：${fb.zh}`);
-    lines.push(`Overall Feedback (EN): ${fb.en}`);
-    lines.push("");
-    lines.push("題次\t例句\t辨識結果\t正確率(%)");
-    for(const r of quizRecords){
-      const clean = s => (s||"").replace(/\r?\n/g," ").trim();
-      lines.push(`${r.idx}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.pct}`);
-    }
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], {type:"text/plain;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "quiz_results.txt"; a.click();
-    URL.revokeObjectURL(url);
+    if(quizRecords.length!==3){ alert("請先完成一次 3 題的測驗。"); return; }
+    const total=Math.round(quizRecords.reduce((s,r)=>s+r.pct,0)/quizRecords.length), fb=quizOverallFeedback(total);
+    const lines=["【中文口語即時比對｜本次測驗】",`匯出時間：${nowString()}`,`課次：${quizLessonName}`,`總正確率：${total}%`,`總評（中文）：${fb.zh}`,`Overall Feedback (EN): ${fb.en}`,"","題次\t例句\t辨識結果\t正確率(%)"];
+    const clean=s=>(s||"").replace(/\r?\n/g," ").trim();
+    quizRecords.forEach(r=>lines.push(`${r.idx}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.pct}`));
+    const blob=new Blob(["\uFEFF"+lines.join("\n")],{type:"text/plain;charset=utf-8;"}), url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="quiz_results.txt"; a.click(); URL.revokeObjectURL(url);
+  }
+  function downloadQuizCSV(){
+    if(quizRecords.length!==3){ alert("請先完成一次 3 題的測驗。"); return; }
+    const total=Math.round(quizRecords.reduce((s,r)=>s+r.pct,0)/quizRecords.length), fb=quizOverallFeedback(total);
+    const rows=[["題次","例句","辨識結果","正確率(%)"].join(",")];
+    const esc=s=>`"${(s||"").replace(/"/g,'""')}"`;
+    quizRecords.forEach(r=>rows.push([r.idx, esc(r.sentence), esc(r.recognized), r.pct].join(",")));
+    rows.push(["", "", "", ""].join(",")); rows.push(["課次", esc(quizLessonName), "", ""].join(",")); rows.push(["總正確率(%)", total, "", ""].join(",")); rows.push(["總評(中文/EN)", esc(fb.zh+" / "+fb.en), "", ""].join(","));
+    const csv="\uFEFF"+rows.join("\n"); const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}), url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="quiz_results.csv"; a.click(); URL.revokeObjectURL(url);
   }
 
-  function downloadQuizCSV(){
-    if(quizRecords.length !== 3){
-      alert("請先完成一次 3 題的測驗。");
-      return;
-    }
-    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
-    const fb = quizOverallFeedback(total);
+  // ====== 匯入（Excel/CSV）：欄位 Lesson, Sentence ======
+  function importSentences(){
+    const f=document.getElementById("importFile").files[0]; if(!f){ alert("請先選擇檔案（CSV 或 Excel）。"); return; }
+    const mode=document.querySelector('input[name="importMode"]:checked').value; const name=f.name.toLowerCase();
+    if(name.endsWith(".csv")){
+      const reader=new FileReader(); reader.onload=()=>applyImport(parseCSV(reader.result), mode); reader.readAsText(f,'utf-8');
+    }else if(name.endsWith(".xlsx")||name.endsWith(".xls")){
+      const reader=new FileReader(); reader.onload=()=>{ const wb=XLSX.read(reader.result,{type:"array"}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{header:1, raw:false}); applyImport(rows, mode); }; reader.readAsArrayBuffer(f);
+    }else{ alert("不支援的檔案格式，請使用 .csv、.xlsx 或 .xls"); }
+  }
+  function parseCSV(text){ const lines=text.replace(/\r\n?/g,"\n").split("\n").filter(l=>l.trim().length>0); return lines.map(splitCSVLine); }
+  function splitCSVLine(line){ const out=[]; let cur="", inQ=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch=='"'){ if(inQ && line[i+1]=='"'){ cur+='"'; i++; } else inQ=!inQ; } else if(ch===',' && !inQ){ out.push(cur); cur=""; } else { cur+=ch; } } out.push(cur); return out; }
 
-    const rows = [];
-    rows.push(["題次","例句","辨識結果","正確率(%)"].join(","));
-    for(const r of quizRecords){
-      const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
-      rows.push([r.idx, esc(r.sentence), esc(r.recognized), r.pct].join(","));
-    }
-    // 另加一列放總評（中/EN）
-    const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
-    rows.push(["", "", "", ""].join(",")); // 空行
-    rows.push(["總正確率(%)", total, "", ""].join(","));
-    rows.push(["總評(中文/EN)", esc(fb.zh + " / " + fb.en), "", ""].join(","));
+  function applyImport(rows, mode){
+    if(!rows||rows.length===0){ alert("檔案內容為空。"); return; }
+    // 找標題列（Lesson / 課次、Sentence / 句子 / 內容）
+    const header = rows[0].map(h=>String(h||"").trim().toLowerCase());
+    let idxLesson = header.findIndex(h=>["lesson","課次"].includes(h));
+    let idxSentence = header.findIndex(h=>["sentence","句子","內容","text"].includes(h));
+    let startRow = 1;
+    if(idxLesson===-1 || idxSentence===-1){ idxLesson=0; idxSentence=1; startRow=0; } // 無表頭
 
-    const csv = "\uFEFF" + rows.join("\n"); // 加 BOM
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "quiz_results.csv"; a.click();
-    URL.revokeObjectURL(url);
+    const collected = {}; // { lessonName: [sentence...] }
+
+    for(let r=startRow; r<rows.length; r++){
+      const row=rows[r]; if(!row) continue;
+      const lessonName=(row[idxLesson]??"").toString().trim();
+      const sentence=(row[idxSentence]??"").toString().trim();
+      if(!lessonName || !sentence) continue;
+      if(!collected[lessonName]) collected[lessonName]=[];
+      if(!collected[lessonName].includes(sentence)) collected[lessonName].push(sentence);
+    }
+
+    const touched=[];
+    Object.keys(collected).forEach(lessonName=>{
+      touched.push(lessonName);
+      if(mode==="replace"){ lessons[lessonName]=collected[lessonName]; }
+      else{ const set=new Set(lessons[lessonName]||[]); collected[lessonName].forEach(s=>set.add(s)); lessons[lessonName]=Array.from(set); }
+    });
+
+    refreshLessonOptions(); renderLessonStats();
+    if(touched.length===0){ alert("找不到有效資料，請確認欄位與內容。"); return; }
+
+    // 自動切到第一個更新的課次並出題
+    const first=touched[0]; document.getElementById("lesson").value=first; document.getElementById("quizLesson").value=first; newSentence();
+    alert(`匯入完成！更新課次：${touched.join("、")}。`);
+  }
+
+  function downloadTemplate(){
+    const lines=[
+      "Lesson,Sentence",
+      "第一課,請問教務處在幾樓，我要辦理加退選",
+      "第二課,到臺北車站要換哪一條捷運線",
+      "第三課,這件外套有沒有小一號的尺寸",
+      "第四課,請不要香菜謝謝另外加一點辣",
+      "第五課,租屋合約最短需一年可否接受"
+    ];
+    const csv="\uFEFF"+lines.join("\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}), url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="lesson_template.csv"; a.click(); URL.revokeObjectURL(url);
   }
 </script>
 </body>
