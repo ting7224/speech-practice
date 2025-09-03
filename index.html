@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>中文口語即時比對小程式</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      background: #fafafa;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    select, button {
+      padding: 8px 12px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    .sentence {
+      font-size: 20px;
+      text-align: center;
+      margin: 20px 0;
+      padding: 10px;
+      background: #f1f1f1;
+      border-radius: 8px;
+    }
+    #result, #diff {
+      padding: 10px;
+      margin-top: 10px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      min-height: 30px;
+    }
+    .highlight {
+      background: yellow;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>中文口語即時比對</h1>
+
+    <label for="topic">選擇主題：</label>
+    <select id="topic">
+      <option value="school">學校</option>
+      <option value="transport">交通</option>
+      <option value="shopping">購物</option>
+      <option value="food">餐飲</option>
+      <option value="housing">住宿</option>
+    </select>
+    <button onclick="newSentence()">換一句</button>
+
+    <div class="sentence" id="sentence">請按「換一句」生成句子</div>
+
+    <button onclick="playSentence()">🔊 示範發音</button>
+    <button onclick="startRecognition()">🎙️ 開始錄音</button>
+
+    <h3>辨識結果：</h3>
+    <div id="result">尚無結果</div>
+
+    <h3>差異高光：</h3>
+    <div id="diff">尚無結果</div>
+
+    <h3>正確率：</h3>
+    <div id="accuracy">—</div>
+  </div>
+
+<script>
+  const sentences = {
+    school: [
+      "請問教務處在幾樓，我要辦理加退選",
+      "圖書館今天開到幾點，我想借參考書",
+      "下週的小組報告需要上臺簡報十分鐘"
+    ],
+    transport: [
+      "到臺北車站要換哪一條捷運線",
+      "公車到站請從後門下車不要擠",
+      "機場快線末班車是晚上十一點"
+    ],
+    shopping: [
+      "這件外套有沒有小一號的尺寸",
+      "特價商品售出恕不退換請留意",
+      "結帳可以使用行動支付和發票載具"
+    ],
+    food: [
+      "請不要香菜謝謝另外加一點辣",
+      "內用還是外帶需要發票嗎",
+      "這道牛肉麵可以調整麵條軟硬"
+    ],
+    housing: [
+      "租屋合約最短需一年可否接受",
+      "水電另計每月管理費五百元",
+      "押金兩個月退租時會點交"
+    ]
+  };
+
+  let currentSentence = "";
+
+  function newSentence() {
+    const topic = document.getElementById("topic").value;
+    const list = sentences[topic];
+    currentSentence = list[Math.floor(Math.random() * list.length)];
+    document.getElementById("sentence").innerText = currentSentence;
+    document.getElementById("result").innerText = "尚無結果";
+    document.getElementById("diff").innerText = "尚無結果";
+    document.getElementById("accuracy").innerText = "—";
+  }
+
+  // 示範發音
+  function playSentence() {
+    if (!currentSentence) {
+      alert("請先生成句子！");
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(currentSentence);
+    utterance.lang = "zh-TW";
+    speechSynthesis.speak(utterance);
+  }
+
+  // 語音辨識
+  function startRecognition() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
+      return;
+    }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = "zh-TW";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.start();
+    recognition.onresult = function(event) {
+      const resultText = event.results[0][0].transcript;
+      document.getElementById("result").innerText = resultText;
+      compareText(currentSentence, resultText);
+    };
+  }
+
+  // 比對文字並高光錯誤
+  function compareText(target, spoken) {
+    let diffHtml = "";
+    let correctCount = 0;
+    const minLen = Math.min(target.length, spoken.length);
+    for (let i = 0; i < minLen; i++) {
+      if (target[i] === spoken[i]) {
+        diffHtml += target[i];
+        correctCount++;
+      } else {
+        diffHtml += `<span class="highlight">${spoken[i]}</span>`;
+      }
+    }
+    if (spoken.length > target.length) {
+      diffHtml += `<span class="highlight">${spoken.slice(target.length)}</span>`;
+    }
+    document.getElementById("diff").innerHTML = diffHtml;
+    const accuracy = Math.round((correctCount / target.length) * 100);
+    document.getElementById("accuracy").innerText = accuracy + "%";
+  }
+</script>
+</body>
+</html>
