@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>中文口語即時比對小程式</title>
+  <title>中文口語練習</title>
   <style>
     body {
       font-family: "Microsoft JhengHei", Arial, sans-serif;
@@ -12,22 +12,23 @@
       padding: 20px;
     }
     .container {
-      max-width: 860px;
+      max-width: 920px;
       margin: 0 auto;
       background: white;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h1 { text-align: center; color: #333; }
+    h1 { text-align: center; color: #333; margin-top: 0; }
+    h2 { margin-top: 28px; }
     select, button { padding: 8px 12px; margin: 5px; font-size: 16px; }
     .sentence {
       font-size: 20px; text-align: center; margin: 20px 0;
       padding: 10px; background: #f1f1f1; border-radius: 8px;
     }
-    #result, #diff {
+    #result, #diff, #quizDiff, .box {
       padding: 10px; margin-top: 10px; background: #f9f9f9;
-      border: 1px solid #ddd; min-height: 30px;
+      border: 1px solid #ddd; min-height: 30px; border-radius: 8px;
     }
     .row { margin: 6px 0; }
     .label { color:#666; font-size:14px; margin-right:6px; }
@@ -36,39 +37,109 @@
     .note { color:#6b7280; font-size:12px; }
     .scoreRow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     #feedback { color:#374151; font-size:15px; }
+    .muted { color:#6b7280; }
+    .flex { display:flex; gap:20px; flex-wrap:wrap; }
+    .col { flex:1 1 380px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eaeaea; padding: 8px; text-align: left; vertical-align: top; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .em { font-weight:600; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>中文口語即時比對</h1>
 
-    <label for="topic">選擇主題：</label>
-    <select id="topic">
-      <option value="school">學校</option>
-      <option value="transport">交通</option>
-      <option value="shopping">購物</option>
-      <option value="food">餐飲</option>
-      <option value="housing">住宿</option>
-    </select>
-    <button onclick="newSentence()">換一句</button>
+    <!-- 練習模式 -->
+    <h2>練習</h2>
+    <div class="flex">
+      <div class="col">
+        <div class="actions">
+          <label for="topic">選擇主題：</label>
+          <select id="topic">
+            <option value="school">學校</option>
+            <option value="transport">交通</option>
+            <option value="shopping">購物</option>
+            <option value="food">餐飲</option>
+            <option value="housing">住宿</option>
+          </select>
+          <button onclick="newSentence()">換一句</button>
+        </div>
 
-    <div class="sentence" id="sentence">請按「換一句」生成句子</div>
+        <div class="sentence" id="sentence">請按「換一句」生成句子</div>
 
-    <button onclick="playSentence()">🔊 示範發音</button>
-    <button onclick="startRecognition()">🎙️ 開始錄音</button>
+        <div class="actions">
+          <button onclick="playSentence()">🔊 示範發音</button>
+          <button onclick="startRecognition()">🎙️ 開始錄音</button>
+        </div>
 
-    <h3>辨識結果：</h3>
-    <div id="result">尚無結果</div>
+        <h3>辨識結果：</h3>
+        <div id="result">尚無結果</div>
 
-    <h3>差異高光：</h3>
-    <div id="diff">尚無結果</div>
-    <div class="note">說明：綠底為一致，高光為不同；例句缺漏以 <b>∅</b> 顯示，辨識多唸會在「辨識」行以高光顯示。</div>
+        <h3>差異高光：</h3>
+        <div id="diff">尚無結果</div>
+        <div class="note">說明：綠底為一致，高光為不同；例句缺漏以 <b>∅</b> 顯示，辨識多唸會在「辨識」行以高光顯示。</div>
 
-    <h3>正確率：</h3>
-    <div class="scoreRow">
-      <div id="accuracy">—</div>
-      <div id="feedback"></div>
-      <button id="btnDownload" onclick="downloadTxt()">⬇️ 下載成績（TXT）</button>
+        <h3>正確率：</h3>
+        <div class="scoreRow">
+          <div id="accuracy">—</div>
+          <div id="feedback"></div>
+          <button id="btnDownload" onclick="downloadTxt()">⬇️ 下載成績（TXT）</button>
+        </div>
+      </div>
+
+      <!-- 測驗模式 -->
+      <div class="col">
+        <h2>測驗</h2>
+        <div class="box">
+          <div class="actions">
+            <label for="quizTopic">主題：</label>
+            <select id="quizTopic">
+              <option value="school">學校</option>
+              <option value="transport">交通</option>
+              <option value="shopping">購物</option>
+              <option value="food">餐飲</option>
+              <option value="housing">住宿</option>
+            </select>
+            <button onclick="startQuiz()">開始測驗（3題）</button>
+          </div>
+
+          <div class="muted">狀態：<span id="quizState">未開始</span></div>
+
+          <div class="sentence" id="quizSentence">（開始後顯示本題句子）</div>
+
+          <div class="actions">
+            <button onclick="quizPlay()">🔊 示範發音</button>
+            <button onclick="quizRecord()">🎙️ 開始錄音</button>
+            <button onclick="quizSubmit()">提交本題</button>
+          </div>
+
+          <div class="row"><span class="label">本題辨識：</span><span id="quizHeard">—</span></div>
+          <div id="quizDiff">（高光差異會顯示在這裡）</div>
+        </div>
+
+        <div id="quizSummary" class="box" style="display:none;">
+          <h3>本次測驗結果</h3>
+          <div class="row">總正確率：<b id="quizTotal">—</b></div>
+          <div class="row">總評（中 / EN）：<span id="quizFeedback" class="em">—</span></div>
+          <div class="actions">
+            <button onclick="downloadQuizTXT()">⬇️ 下載本次（TXT）</button>
+            <button onclick="downloadQuizCSV()">⬇️ 下載本次（CSV）</button>
+          </div>
+
+          <h4>辨識比對表（3題）</h4>
+          <table id="quizTable">
+            <thead>
+              <tr>
+                <th style="width:40px;">題</th>
+                <th>例句 / 辨識（雙行高光）</th>
+                <th style="width:80px;">正確率</th>
+              </tr>
+            </thead>
+            <tbody><!-- JS 動態填入 --></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -78,112 +149,54 @@
     school: [
       "請問我可以在哪裡辦理加退選",
       "圖書館今天開到幾點",
-      "下週的小組報告需要上臺報告十分鐘",
+      "下週的小組報告要上臺報告，我很緊張",
       "明天的體育課要穿運動服和白色球鞋",
-      "交換生說明會改到下午三點，別遲到了"
+      "交換生說明會改到明天，別遲到了"
     ],
     transport: [
       "到臺北車站要在哪裡搭車",
-      "公車到站請從後門下車不要擠",
-      "這輛公車的末班車是晚上十一點",
-      "你要下車要記得早一點按下車鈴",
-      "搭高鐵自由座需要先排隊等車"
+      "請從後門下車，不要擠",
+      "這班公車的末班車是幾點",
+      "你要下車的話請記得按下車鈴",
+      "要搭高鐵自由座需要先排隊"
     ],
     shopping: [
-      "這件外套太大了有沒有小一號的",
-      "這是特價商品不可以退換喔",
-      "請問我可以使用行動支付或是信用卡嗎",
-      "你有會員或載具嗎",
-      "你已經確認尺寸和顏色了嗎"
+      "這件外套有沒有小一號的",
+      "這是特價商品，售出恕不退換",
+      "請問我可以使用行動支付或信用卡嗎",
+      "請問你有會員或載具嗎",
+      "這件衣服破了一個洞，我要退貨"
     ],
     food: [
-      "請不要加香菜謝謝另外加一點辣",
+      "請不要加香菜，謝謝。另外加一點辣",
       "請問你要內用還是外帶",
-      "我要點牛肉麵和冰紅茶內用三號桌",
+      "我要點一碗牛肉麵和一杯冰紅茶，內用二號桌",
       "這家餐廳的招牌菜是小籠包和炒飯",
-      "我要一杯冰紅茶半糖去冰"
+      "我要一杯冰紅茶，半糖去冰"
     ],
     housing: [
-      "我這個學期不住在宿舍要在學校附近租房子",
-      "水電另外算還有每月要交管理費一百元",
-      "這個房間需要付押金兩個月退租時會還給你",
-      "這裡不可以養寵物也不可以用明火煮東西",
-      "垃圾需要分類才可以丟到垃圾桶"
+      "我這個學期不住宿舍，要在學校附近租房子",
+      "水電另計，還有每月管理費一百元",
+      "除了房租，還有兩個月的押金，退租的時候會還給你。",
+      "這棟大樓不可以養寵物也不可以抽菸",
+      "一定要做好垃圾分類"
     ]
   };
 
-  let currentSentence = "";
-  const records = []; // 用來累積每次練習的成績
-
+  // ====== 共用：時間、正規化、比對 ======
   function nowString(){
     const t = new Date();
     const pad = n => String(n).padStart(2,'0');
     return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
   }
 
-  function newSentence() {
-    const topic = document.getElementById("topic").value;
-    const list = sentences[topic];
-    currentSentence = list[Math.floor(Math.random() * list.length)];
-    document.getElementById("sentence").innerText = currentSentence;
-    document.getElementById("result").innerText = "尚無結果";
-    document.getElementById("diff").innerText = "尚無結果";
-    document.getElementById("accuracy").innerText = "—";
-    document.getElementById("feedback").innerText = "";
-  }
-
-  // 示範發音
-  function playSentence() {
-    if (!currentSentence) { alert("請先生成句子！"); return; }
-    const u = new SpeechSynthesisUtterance(currentSentence);
-    u.lang = "zh-TW";
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  }
-
-  // ---- 語音辨識（Chrome）----
-  function startRecognition() {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
-      return;
-    }
-    if (!currentSentence) {
-      alert("請先按「換一句」生成句子！");
-      return;
-    }
-    const recognition = new webkitSpeechRecognition();
-    recognition.lang = "zh-TW";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.start();
-    recognition.onresult = function(event) {
-      const resultText = event.results[0][0].transcript;
-      document.getElementById("result").innerText = resultText;
-      const { pct, feedbackText } = renderDiffAndScore(currentSentence, resultText);
-
-      // 記錄
-      const topicSel = document.getElementById("topic");
-      const topicName = topicSel.options[topicSel.selectedIndex].text;
-      records.push({
-        time: nowString(),
-        topic: topicName,
-        sentence: currentSentence,
-        recognized: resultText,
-        accuracy: pct,
-        feedback: feedbackText
-      });
-    };
-  }
-
-  // ---- 工具：正規化（去空白與標點、全形轉半形）----
   function normalize(str){
     if(!str) return "";
     return str
-      .replace(/[\s\p{P}\p{S}]/gu,'')
-      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      .replace(/[\s\p{P}\p{S}]/gu,'') // 去掉空白、標點
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)); // 全形轉半形
   }
 
-  // ---- Levenshtein + 回溯，輸出雙端高光 ----
   function diffAlign(aRaw, bRaw){
     const a = normalize(aRaw);
     const b = normalize(bRaw);
@@ -221,12 +234,36 @@
   function feedbackByScore(pct){
     if (pct >= 95) return "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。";
     if (pct >= 85) return "很不錯！再注意個別字的收尾與連音，放慢一點更穩。";
-    if (pct >= 70) return "有進步！建議跟著示範慢速朗讀一次，注意容易混淆的字。";
-    if (pct >= 50) return "別急，先分段朗讀並重複練兩次，再一次完整朗讀。";
+    if (pct >= 70) return "有進步！建議先跟著示範慢速朗讀，針對高光字多練幾次。";
+    if (pct >= 50) return "別急，先分段朗讀並重複練習，再完整朗讀一次。";
     return "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。";
   }
 
-  function renderDiffAndScore(targetRaw, heardRaw){
+  // ❶ 測驗總評（中／英對照）
+  function quizOverallFeedback(totalPct){
+    if (totalPct >= 95) return {
+      zh: "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。",
+      en: "Excellent! Nearly perfect accuracy—keep your articulation clear and pace steady."
+    };
+    if (totalPct >= 85) return {
+      zh: "很不錯！再注意個別字的收尾與連音，放慢一點更穩。",
+      en: "Great work! Watch final consonants and liaison; a slightly slower pace adds stability."
+    };
+    if (totalPct >= 70) return {
+      zh: "有進步！建議跟著示範慢速朗讀，針對高光字多練幾次。",
+      en: "Good progress! Shadow the demo slowly and practice the highlighted characters."
+    };
+    if (totalPct >= 50) return {
+      zh: "別急，先分段朗讀並重複練習，再完整朗讀一次。",
+      en: "Don't rush—read in chunks, repeat, then attempt a full read."
+    };
+    return {
+      zh: "加油！先聽示範兩遍，逐字跟讀，確認每個字都有發到位。",
+      en: "Keep at it! Listen twice, echo word-by-word, and ensure each syllable lands."
+    };
+  }
+
+  function renderDiffHTML(targetRaw, heardRaw){
     const {distance, ops, baseLen} = diffAlign(targetRaw, heardRaw);
     const partsA = []; // 例句
     const partsB = []; // 辨識
@@ -241,51 +278,268 @@
         partsA.push(`<span class="highlight" title="未唸出：${op.a}">${op.a}</span>`);
         partsB.push(`<span class="highlight" title="未唸出">∅</span>`);
       }else if(op.type==='INS'){ // 例句無、辨識多
-        partsA.push(`<span class="highlight" title="多唸">${'∅'}</span>`);
+        partsA.push(`<span class="highlight" title="多唸">∅</span>`);
         partsB.push(`<span class="highlight" title="多唸：${op.b}">${op.b}</span>`);
       }
     }
+    const acc = Math.max(0, 1 - distance / baseLen);
+    const pct = Math.round(acc*100);
     const html =
       `<div class="row"><span class="label">例句：</span>${partsA.join('')}</div>`+
       `<div class="row"><span class="label">辨識：</span>${partsB.join('')}</div>`;
-    document.getElementById("diff").innerHTML = html;
-
-    // 分數（以例句長度為基準）
-    const acc = Math.max(0, 1 - distance / baseLen);
-    const pct = Math.round(acc*100);
-    document.getElementById("accuracy").innerText = pct + "%";
-
-    const fb = feedbackByScore(pct);
-    document.getElementById("feedback").innerText = fb;
-
-    return { pct, feedbackText: fb };
+    return { html, pct };
   }
 
-  // ---- 下載 TXT 成績 ----
+  // ====== 練習模式 ======
+  let currentSentence = "";
+  const records = []; // 練習紀錄（TXT 匯出用）
+
+  function newSentence() {
+    const topic = document.getElementById("topic").value;
+    const list = sentences[topic];
+    currentSentence = list[Math.floor(Math.random() * list.length)];
+    document.getElementById("sentence").innerText = currentSentence;
+    document.getElementById("result").innerText = "尚無結果";
+    document.getElementById("diff").innerText = "尚無結果";
+    document.getElementById("accuracy").innerText = "—";
+    document.getElementById("feedback").innerText = "";
+  }
+
+  function playSentence() {
+    if (!currentSentence) { alert("請先生成句子！"); return; }
+    const u = new SpeechSynthesisUtterance(currentSentence);
+    u.lang = "zh-TW";
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+
+  function startRecognition() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
+      return;
+    }
+    if (!currentSentence) { alert("請先按「換一句」生成句子！"); return; }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = "zh-TW";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.start();
+
+    recognition.onresult = function(event) {
+      const resultText = event.results[0][0].transcript;
+      document.getElementById("result").innerText = resultText;
+
+      const { html, pct } = renderDiffHTML(currentSentence, resultText);
+      document.getElementById("diff").innerHTML = html;
+      document.getElementById("accuracy").innerText = pct + "%";
+      document.getElementById("feedback").innerText = feedbackByScore(pct);
+
+      // 練習紀錄
+      const topicSel = document.getElementById("topic");
+      const topicName = topicSel.options[topicSel.selectedIndex].text;
+      records.push({
+        time: nowString(),
+        topic: topicName,
+        sentence: currentSentence,
+        recognized: resultText,
+        accuracy: pct,
+        feedback: feedbackByScore(pct)
+      });
+    };
+  }
+
   function downloadTxt(){
     if (records.length === 0) {
       alert("尚無成績可下載。請先完成一次錄音練習。");
       return;
     }
     const lines = [];
-    lines.push("【中文口語即時比對｜成績單】");
+    lines.push("【中文口語即時比對｜練習成績單】");
     lines.push(`匯出時間：${nowString()}`);
     lines.push("");
     lines.push("時間\t主題\t例句\t辨識結果\t正確率(%)\t建議與回饋");
-
     for (const r of records) {
-      // 以 TAB 分隔，避免逗號混淆；換行統一替換空白
       const clean = s => (s||"").replace(/\r?\n/g," ").trim();
       lines.push(
         `${r.time}\t${clean(r.topic)}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.accuracy}\t${clean(r.feedback)}`
       );
     }
-
     const content = lines.join("\n");
-    const blob = new Blob(["\uFEFF" + content], {type: "text/plain;charset=utf-8;"}); // 加 BOM，Windows 記事本不會亂碼
+    const blob = new Blob(["\uFEFF" + content], {type: "text/plain;charset=utf-8;"}); // BOM for Notepad
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "speaking_results.txt"; a.click();
+    a.href = url; a.download = "practice_results.txt"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ====== 測驗模式 ======
+  let quizQueue = [];   // 3 題的句子
+  let quizIndex = -1;   // 目前題號（0~2）
+  let quizHeard = "";   // 本題辨識
+  let quizTopicName = "";
+  const quizRecords = []; // {idx, sentence, recognized, pct, diffHTML}
+
+  function setQuizState(text){ document.getElementById("quizState").innerText = text; }
+
+  function startQuiz(){
+    const sel = document.getElementById("quizTopic");
+    const key = sel.value;
+    quizTopicName = sel.options[sel.selectedIndex].text;
+
+    // 從主題隨機抽 3 句（不重覆）
+    const pool = [...sentences[key]];
+    quizQueue = [];
+    for(let i=0;i<3;i++){
+      const idx = Math.floor(Math.random()*pool.length);
+      quizQueue.push(pool.splice(idx,1)[0]);
+    }
+    quizRecords.length = 0;
+    quizIndex = -1;
+    quizHeard = "";
+    document.getElementById("quizSummary").style.display = "none";
+    document.getElementById("quizFeedback").innerText = "—";
+    setQuizState("已抽題，按「提交本題」前請先錄音。");
+    nextQuiz();
+  }
+
+  function nextQuiz(){
+    quizIndex++;
+    if(quizIndex >= quizQueue.length){
+      finishQuiz();
+      return;
+    }
+    const s = quizQueue[quizIndex];
+    document.getElementById("quizSentence").innerText = `第 ${quizIndex+1} 題：${s}`;
+    document.getElementById("quizHeard").innerText = "—";
+    document.getElementById("quizDiff").innerText = "（高光差異會顯示在這裡）";
+    quizHeard = "";
+    setQuizState(`作答中（第 ${quizIndex+1}/3 題）`);
+  }
+
+  function quizPlay(){
+    const txt = quizQueue[quizIndex];
+    if(!txt){ alert("請先開始測驗。"); return; }
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = "zh-TW";
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+
+  function quizRecord(){
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("此瀏覽器不支援語音辨識，請使用 Chrome。");
+      return;
+    }
+    const txt = quizQueue[quizIndex];
+    if(!txt){ alert("請先開始測驗。"); return; }
+
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = "zh-TW";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.start();
+
+    recognition.onresult = function(event) {
+      quizHeard = event.results[0][0].transcript || "";
+      document.getElementById("quizHeard").innerText = quizHeard || "（未取得辨識）";
+      const { html } = renderDiffHTML(txt, quizHeard);
+      document.getElementById("quizDiff").innerHTML = html;
+    };
+  }
+
+  function quizSubmit(){
+    const txt = quizQueue[quizIndex];
+    if(!txt){ alert("請先開始測驗。"); return; }
+    if(!quizHeard){ alert("請先錄音再提交本題。"); return; }
+
+    const { html, pct } = renderDiffHTML(txt, quizHeard);
+    quizRecords.push({
+      idx: quizIndex+1,
+      sentence: txt,
+      recognized: quizHeard,
+      pct,
+      diffHTML: html
+    });
+
+    // 下一題或結束
+    nextQuiz();
+  }
+
+  function finishQuiz(){
+    setQuizState("測驗完成");
+    // 統計總分
+    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
+    document.getElementById("quizTotal").innerText = total + "%";
+
+    // 總評（雙語）
+    const fb = quizOverallFeedback(total);
+    document.getElementById("quizFeedback").innerText = `${fb.zh} / ${fb.en}`;
+
+    // 填表
+    const tbody = document.querySelector("#quizTable tbody");
+    tbody.innerHTML = "";
+    for(const r of quizRecords){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.idx}</td>
+        <td>${r.diffHTML}</td>
+        <td>${r.pct}%</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    document.getElementById("quizSummary").style.display = "block";
+  }
+
+  function downloadQuizTXT(){
+    if(quizRecords.length !== 3){
+      alert("請先完成一次 3 題的測驗。");
+      return;
+    }
+    const lines = [];
+    lines.push("【中文口語即時比對｜本次測驗】");
+    lines.push(`匯出時間：${nowString()}`);
+    lines.push(`主題：${quizTopicName}`);
+    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
+    const fb = quizOverallFeedback(total);
+    lines.push(`總正確率：${total}%`);
+    lines.push(`總評（中文）：${fb.zh}`);
+    lines.push(`Overall Feedback (EN): ${fb.en}`);
+    lines.push("");
+    lines.push("題次\t例句\t辨識結果\t正確率(%)");
+    for(const r of quizRecords){
+      const clean = s => (s||"").replace(/\r?\n/g," ").trim();
+      lines.push(`${r.idx}\t${clean(r.sentence)}\t${clean(r.recognized)}\t${r.pct}`);
+    }
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], {type:"text/plain;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "quiz_results.txt"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadQuizCSV(){
+    if(quizRecords.length !== 3){
+      alert("請先完成一次 3 題的測驗。");
+      return;
+    }
+    const total = Math.round(quizRecords.reduce((s,r)=>s+r.pct,0) / quizRecords.length);
+    const fb = quizOverallFeedback(total);
+
+    const rows = [];
+    rows.push(["題次","例句","辨識結果","正確率(%)"].join(","));
+    for(const r of quizRecords){
+      const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
+      rows.push([r.idx, esc(r.sentence), esc(r.recognized), r.pct].join(","));
+    }
+    // 另加一列放總評（中/EN）
+    const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
+    rows.push(["", "", "", ""].join(",")); // 空行
+    rows.push(["總正確率(%)", total, "", ""].join(","));
+    rows.push(["總評(中文/EN)", esc(fb.zh + " / " + fb.en), "", ""].join(","));
+
+    const csv = "\uFEFF" + rows.join("\n"); // 加 BOM
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "quiz_results.csv"; a.click();
     URL.revokeObjectURL(url);
   }
 </script>
