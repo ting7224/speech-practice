@@ -28,6 +28,12 @@
     .em { font-weight:600; }
     .pill { display:inline-block; background:#eef2ff; padding:2px 8px; border-radius:999px; font-size:12px; margin:2px 6px 2px 0; }
     .list { display:flex; flex-wrap:wrap; }
+    .research-settings { margin-top:24px; text-align:center; font-size:13px; color:#6b7280; }
+    .research-settings button { font-size:13px; padding:5px 10px; }
+    .consent-overlay { position:fixed; inset:0; background:rgba(0,0,0,.48); display:none; align-items:center; justify-content:center; z-index:9999; padding:18px; }
+    .consent-card { max-width:620px; width:100%; background:#fff; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+    .consent-card p, .consent-card li { line-height:1.7; }
+    .consent-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:18px; }
   </style>
 </head>
 <body>
@@ -127,7 +133,10 @@
         </div>
       </div>
     </div>
+    <div class="research-settings">研究資料蒐集狀態：<span id="researchStatus">尚未選擇</span> <button type="button" id="researchSettingsBtn">研究資料蒐集設定</button></div>
   </div>
+
+  <div id="consentOverlay" class="consent-overlay" role="dialog" aria-modal="true" aria-labelledby="consentTitle"><div class="consent-card"><h2 id="consentTitle">使用者資料蒐集說明</h2><p>為改善課程與進行教學研究，本工具可蒐集匿名使用歷程資料，包括匿名識別碼、使用日期與時間、課次、練習與測驗操作、完成時間、示範發音與語音辨識使用情形，以及正確率。</p><ul><li>不蒐集姓名、學號或 Email。</li><li>不儲存錄音檔。</li><li>不將完整語音辨識文字上傳至研究資料庫。</li><li>研究系統不主動蒐集 IP 位址作為研究資料。</li><li>不同意資料蒐集仍可正常使用本工具。</li></ul><div class="consent-actions"><button type="button" id="declineResearch">不同意資料蒐集，仍繼續使用</button><button type="button" id="acceptResearch">我了解並同意開始使用</button></div></div></div>
 
 <!-- 解析 Excel 用（SheetJS） -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -204,7 +213,14 @@
     }
     const pct=Math.round(Math.max(0,1-distance/baseLen)*100);
     const html=`<div class="row"><span class="label">例句：</span>${A.join('')}</div><div class="row"><span class="label">辨識：</span>${B.join('')}</div>`;
-    return { html, pct };
+    const char_results=ops.map((op,pos)=>({
+      position:pos+1,
+      target_char:op.a||"",
+      recognized_char:op.b||"",
+      result:op.type==="EQ"?"correct":op.type==="SUB"?"substitution":op.type==="DEL"?"deletion":"insertion"
+    }));
+    const error_count=char_results.filter(x=>x.result!=="correct").length;
+    return { html, pct, char_results, error_count };
   }
   function feedbackByScore(pct){
     if (pct>=95) return "太棒了！幾乎完全正確，維持清晰的咬字與穩定的語速。";
@@ -243,12 +259,15 @@
 
   // ====== 練習 ======
   let currentSentence="";
+  let practiceRound=0, practiceAttempt=0, practiceTtsCount=0, practiceRoundStart=0;
   const practiceRecords=[];
   function newSentence(){
     const key=document.getElementById("lesson").value;
     const list=lessons[key]||[];
     if(list.length===0){ alert("此課次目前沒有句子，請先匯入。"); return; }
     currentSentence=list[Math.floor(Math.random()*list.length)];
+    practiceRound++; practiceAttempt=0; practiceTtsCount=0; practiceRoundStart=Date.now();
+    window.researchTrack?.("practice_new_sentence", { lesson:key, round:practiceRound });
     document.getElementById("sentence").innerText=currentSentence;
     document.getElementById("result").innerText="尚無結果";
     document.getElementById("diff").innerText="尚無結果";
@@ -257,22 +276,27 @@
   }
   function playSentence(){
     if(!currentSentence){ alert("請先生成句子！"); return; }
+    practiceTtsCount++;
+    window.researchTrack?.("practice_tts", { lesson:document.getElementById("lesson").value, round:practiceRound, tts_count:practiceTtsCount });
     const u=new SpeechSynthesisUtterance(currentSentence); u.lang="zh-TW";
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
   function startRecognition(){
     if(!('webkitSpeechRecognition'in window)){ alert("此瀏覽器不支援語音辨識，請使用 Chrome。"); return; }
     if(!currentSentence){ alert("請先按「換一句」生成句子！"); return; }
+    practiceAttempt++;
+    window.researchTrack?.("practice_recording", { lesson:document.getElementById("lesson").value, round:practiceRound, attempt:practiceAttempt });
     const r=new webkitSpeechRecognition(); r.lang="zh-TW"; r.continuous=false; r.interimResults=false; r.start();
     r.onresult=function(e){
       const heard=e.results[0][0].transcript;
       document.getElementById("result").innerText=heard;
-      const {html,pct}=renderDiffHTML(currentSentence, heard);
+      const {html,pct,char_results,error_count}=renderDiffHTML(currentSentence, heard);
       document.getElementById("diff").innerHTML=html;
       document.getElementById("accuracy").innerText=pct+"%";
       document.getElementById("feedback").innerText=feedbackByScore(pct);
       const key=document.getElementById("lesson").value;
       practiceRecords.push({ time:nowString(), lesson:key, sentence:currentSentence, recognized:heard, accuracy:pct, feedback:feedbackByScore(pct) });
+      window.researchTrack?.("practice_result", { lesson:key, round:practiceRound, attempt:practiceAttempt, score:pct, completion_time:practiceRoundStart ? Math.round((Date.now()-practiceRoundStart)/1000) : null, tts_count:practiceTtsCount, recording_used:true, target_length:normalize(currentSentence).length, error_count, char_results });
     };
   }
   function downloadTxt(){
@@ -286,10 +310,12 @@
 
   // ====== 測驗 ======
   let quizQueue=[], quizIndex=-1, quizHeard="", quizLessonName="";
+  let quizStartTime=0, quizQuestionStart=0, quizTtsCount=0, quizAttempt=0;
   const quizRecords=[]; // {idx,sentence,recognized,pct,diffHTML}
   function setQuizState(t){ document.getElementById("quizState").innerText=t; }
   function startQuiz(){
     const key=document.getElementById("quizLesson").value; quizLessonName=key;
+    quizStartTime=Date.now(); window.researchTrack?.("quiz_start", { lesson:key });
     const pool=[...(lessons[key]||[])]; if(pool.length<1){ alert("此課次沒有句子，請先匯入。"); return; }
     quizQueue=[]; for(let i=0;i<3;i++){ if(pool.length===0) break; const idx=Math.floor(Math.random()*pool.length); quizQueue.push(pool.splice(idx,1)[0]); }
     if(quizQueue.length<3){ const base=lessons[key]||[]; while(quizQueue.length<3 && base.length>0){ quizQueue.push(base[Math.floor(Math.random()*base.length)]); } }
@@ -298,22 +324,24 @@
   }
   function nextQuiz(){
     quizIndex++; if(quizIndex>=quizQueue.length){ finishQuiz(); return; }
-    const s=quizQueue[quizIndex]; document.getElementById("quizSentence").innerText=`第 ${quizIndex+1} 題：${s}`;
+    const s=quizQueue[quizIndex]; quizQuestionStart=Date.now(); quizTtsCount=0; quizAttempt=0; document.getElementById("quizSentence").innerText=`第 ${quizIndex+1} 題：${s}`;
     document.getElementById("quizHeard").innerText="—"; document.getElementById("quizDiff").innerText="（高光差異會顯示在這裡）"; quizHeard="";
     setQuizState(`作答中（第 ${quizIndex+1}/3 題）`);
   }
-  function quizPlay(){ const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; } const u=new SpeechSynthesisUtterance(txt); u.lang="zh-TW"; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+  function quizPlay(){ const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; } quizTtsCount++; window.researchTrack?.("quiz_tts", { lesson:quizLessonName, question:quizIndex+1, tts_count:quizTtsCount }); const u=new SpeechSynthesisUtterance(txt); u.lang="zh-TW"; speechSynthesis.cancel(); speechSynthesis.speak(u); }
   function quizRecord(){
     if(!('webkitSpeechRecognition'in window)){ alert("此瀏覽器不支援語音辨識，請使用 Chrome。"); return; }
     const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; }
+    quizAttempt++; window.researchTrack?.("quiz_recording", { lesson:quizLessonName, question:quizIndex+1, attempt:quizAttempt });
     const r=new webkitSpeechRecognition(); r.lang="zh-TW"; r.continuous=false; r.interimResults=false; r.start();
     r.onresult=function(e){ quizHeard=e.results[0][0].transcript||""; document.getElementById("quizHeard").innerText=quizHeard||"（未取得辨識）"; const {html}=renderDiffHTML(txt,quizHeard); document.getElementById("quizDiff").innerHTML=html; };
   }
   function quizSubmit(){
     const txt=quizQueue[quizIndex]; if(!txt){ alert("請先開始測驗。"); return; }
     if(!quizHeard){ alert("請先錄音再提交本題。"); return; }
-    const {html,pct}=renderDiffHTML(txt, quizHeard);
+    const {html,pct,char_results,error_count}=renderDiffHTML(txt, quizHeard);
     quizRecords.push({ idx:quizIndex+1, sentence:txt, recognized:quizHeard, pct, diffHTML:html });
+    window.researchTrack?.("quiz_result", { lesson:quizLessonName, question:quizIndex+1, attempt:quizAttempt, score:pct, completion_time:quizQuestionStart ? Math.round((Date.now()-quizQuestionStart)/1000) : null, tts_count:quizTtsCount, recording_used:true, target_length:normalize(txt).length, error_count, char_results });
     nextQuiz();
   }
   function finishQuiz(){
@@ -324,6 +352,7 @@
     const tbody=document.querySelector("#quizTable tbody"); tbody.innerHTML="";
     quizRecords.forEach(r=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${r.idx}</td><td>${r.diffHTML}</td><td>${r.pct}%</td>`; tbody.appendChild(tr); });
     document.getElementById("quizSummary").style.display="block";
+    window.researchTrack?.("quiz_complete", { lesson:quizLessonName, total_score:total, question_count:quizRecords.length, completion_time:quizStartTime ? Math.round((Date.now()-quizStartTime)/1000) : null });
   }
   function downloadQuizTXT(){
     if(quizRecords.length!==3){ alert("請先完成一次 3 題的測驗。"); return; }
@@ -406,6 +435,25 @@
     const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}), url=URL.createObjectURL(blob);
     const a=document.createElement("a"); a.href=url; a.download="lesson_template.csv"; a.click(); URL.revokeObjectURL(url);
   }
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyBegbF1xGZzr3l89rhpUQ3Mt-SBk9A4BWM",authDomain:"speaking-practice2.firebaseapp.com",projectId:"speaking-practice2",storageBucket:"speaking-practice2.firebasestorage.app",messagingSenderId:"296798925937",appId:"1:296798925937:web:f5fe31f43a731d040297d0",measurementId:"G-ZEVQ6ZEP0Q"};
+const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
+const APP_ID="speaking-practice-lesson", CONSENT_KEY="research_consent_speaking_practice_lesson";
+const sessionId="S-"+(crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2)); let researchUser=null, sessionLogged=false;
+const overlay=document.getElementById("consentOverlay"), status=document.getElementById("researchStatus");
+function setStatus(){const c=localStorage.getItem(CONSENT_KEY);status.textContent=c==="yes"?"已同意":c==="no"?"未同意":"尚未選擇";}
+async function ensureAuth(){if(localStorage.getItem(CONSENT_KEY)!=="yes")return null;if(researchUser)return researchUser;try{researchUser=(await signInAnonymously(auth)).user;return researchUser}catch(e){console.warn(e);return null}}
+window.researchTrack=async(eventName,data={})=>{if(localStorage.getItem(CONSENT_KEY)!=="yes")return;const u=await ensureAuth();if(!u)return;const clean={};Object.entries(data).forEach(([k,v])=>{if(v!==undefined&&v!==null)clean[k]=v});try{await addDoc(collection(db,"events"),{anonymous_id:u.uid,session_id:sessionId,app_id:APP_ID,event:eventName,...clean,client_timestamp:new Date().toISOString(),timestamp:serverTimestamp()})}catch(e){console.warn("Research write failed",e)}};
+async function startSession(){const u=await ensureAuth();if(u&&!sessionLogged){sessionLogged=true;await window.researchTrack("session_start")}}
+document.getElementById("acceptResearch").onclick=async()=>{localStorage.setItem(CONSENT_KEY,"yes");setStatus();overlay.style.display="none";await startSession()};
+document.getElementById("declineResearch").onclick=()=>{localStorage.setItem(CONSENT_KEY,"no");setStatus();overlay.style.display="none";researchUser=null};
+document.getElementById("researchSettingsBtn").onclick=()=>overlay.style.display="flex";
+setStatus();if(localStorage.getItem(CONSENT_KEY)==="yes")startSession();else if(localStorage.getItem(CONSENT_KEY)!=="no")overlay.style.display="flex";
 </script>
 </body>
 </html>
